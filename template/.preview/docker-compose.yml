@@ -1,0 +1,59 @@
+# EXAMPLE preview stack: a frontend, an API and a database.
+# Replace these services with your own; keep the conventions marked "needed" below.
+#
+# Provided by auto-preview, usable as ${NAME} anywhere in this file:
+#   PREVIEW_URL_<SERVICE>   public URL of each service in the caller's `expose:` (api -> PREVIEW_URL_API)
+#   PREVIEW_PR_NUMBER       PR number          PREVIEW_SHA   commit being previewed
+#   PREVIEW_ENV_FILE        your PREVIEW_ENV secret as a file (for `env_file:`)
+#
+# Needed: a host `ports:` mapping on every exposed service, and a `healthcheck:` on every
+# service (the workflow waits for them). Build contexts are relative to this file.
+
+services:
+  # Example: a backend that talks to the database and allows the frontend's origin.
+  api:
+    build:
+      context: ..
+      dockerfile: api/Dockerfile
+    ports:
+      - "8000:8000"                          # needed: matches `expose: api:8000`
+    env_file:
+      - ${PREVIEW_ENV_FILE}
+    environment:
+      DATABASE_URL: postgresql://app:app@db:5432/app
+      FRONTEND_URL: ${PREVIEW_URL_FRONTEND}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # Example: a frontend that needs the API's public URL when it is built.
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        API_URL: ${PREVIEW_URL_API}          # known before the build starts
+    ports:
+      - "3000:3000"                          # needed: matches `expose: frontend:3000`
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # Example: a backing service. The database is empty and throwaway for every preview.
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app"]
+      interval: 3s
+      timeout: 3s
+      retries: 20

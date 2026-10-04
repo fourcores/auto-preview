@@ -1,0 +1,33 @@
+name: Preview
+
+# Add the `preview` label to a PR to get a live preview environment.
+# Remove the label (or close the PR) to stop it. Pushing while labelled rebuilds it.
+# A `preview:<name>` label (while `preview` is on) also enables compose profile <name>.
+# Only PRs from branches in THIS repo are supported (not forks).
+
+on:
+  pull_request:
+    types: [labeled, unlabeled, synchronize, reopened, closed]
+
+# The called workflow can only narrow these, never widen them.
+permissions:
+  contents: read
+  pull-requests: write
+
+# Do NOT add a `concurrency:` block here. The reusable workflow owns the per-PR
+# concurrency group, and a clash cancels the called jobs.
+
+jobs:
+  preview:
+    # Pin a release tag or a full commit SHA once auto-preview has one.
+    uses: fourcores/auto-preview/.github/workflows/preview.yml@main
+    with:
+      # Example: set this to your own services, one name:port per service that needs a
+      # public URL. Each port must be published on the host in the compose file.
+      expose: "frontend:3000,api:8000"
+      # compose-file: .preview/docker-compose.yml
+      # label: preview
+      # ttl-minutes: 120
+    secrets:
+      # Optional: a dotenv-style secret (KEY=value per line), see .preview/preview.env.example
+      PREVIEW_ENV: ${{ secrets.PREVIEW_ENV }}
